@@ -18,7 +18,7 @@ pub fn build(b: *std.Build) !void {
     }
 
     const upstream = b.dependency("VulkanMemoryAllocator", .{});
-    lib.installHeader(upstream.path("include/vk_mem_alloc.h"), "");
+    lib.installHeader(upstream.path("include/vk_mem_alloc.h"), "vk_mem_alloc.h");
     lib.addIncludePath(upstream.path("include"));
 
     lib.addCSourceFile(.{
