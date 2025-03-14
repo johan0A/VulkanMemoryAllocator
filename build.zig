@@ -2,7 +2,7 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
     const lib = b.addLibrary(.{
-        .name = "vma",
+        .name = "VulkanMemoryAllocator",
         .linkage = b.option(std.builtin.LinkMode, "linkage", "defaults to static") orelse .static,
         .root_module = b.createModule(.{
             .target = b.standardTargetOptions(.{}),
