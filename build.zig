@@ -14,6 +14,7 @@ pub fn build(b: *std.Build) !void {
     if (b.option(bool, "fetch_vulkan_headers", "defaults to true") orelse true) {
         if (b.lazyDependency("vulkan_headers", .{})) |vulkan_headers| {
             lib.linkLibrary(vulkan_headers.artifact("vulkan-headers"));
+            lib.installLibraryHeaders(vulkan_headers.artifact("vulkan-headers"));
         }
     }
 
