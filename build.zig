@@ -11,16 +11,21 @@ pub fn build(b: *std.Build) !void {
     });
     lib.linkLibCpp();
 
-    if (b.option(bool, "fetch_vulkan_headers", "defaults to true") orelse true) {
+    const install_vulkan_headers = b.option(bool, "install-vulkan-headers", "(defaults to false)") orelse false;
+
+    if (b.option(std.Build.LazyPath, "vulkan-headers-path", "Path to Vulkan headers (defaults to bundled headers)")) |vulkan_headers_path| {
+        lib.addIncludePath(vulkan_headers_path);
+        if (install_vulkan_headers) lib.installHeadersDirectory(vulkan_headers_path, "", .{});
+    } else {
         if (b.lazyDependency("vulkan_headers", .{})) |vulkan_headers| {
             lib.linkLibrary(vulkan_headers.artifact("vulkan-headers"));
-            lib.installLibraryHeaders(vulkan_headers.artifact("vulkan-headers"));
+            if (install_vulkan_headers) lib.installLibraryHeaders(vulkan_headers.artifact("vulkan-headers"));
         }
     }
 
     const upstream = b.dependency("VulkanMemoryAllocator", .{});
     lib.installHeader(upstream.path("include/vk_mem_alloc.h"), "vk_mem_alloc.h");
-    lib.addIncludePath(upstream.path("include"));
+    lib.addIncludePath(upstream.path("include/"));
 
     lib.addCSourceFile(.{
         .file = b.addWriteFiles().add("vk_mem_alloc.cpp", "#include \"vk_mem_alloc.h\""),
