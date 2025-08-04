@@ -29,7 +29,7 @@ pub fn build(b: *std.Build) !void {
 
     lib.addCSourceFile(.{
         .file = b.addWriteFiles().add("vk_mem_alloc.cpp", "#include \"vk_mem_alloc.h\""),
-        .flags = &.{ "-DVMA_IMPLEMENTATION", "-std=c++14" },
+        .flags = &.{ "-DVMA_IMPLEMENTATION", "-std=c++17" },
     });
 
     {
