@@ -8,7 +8,7 @@ packaged for the [Zig](https://ziglang.org/) build system.
 1. Add `VulkanMemoryAllocator` to the dependency list in `build.zig.zon`: 
 
 ```sh
-zig fetch --save git+https://github.com/johan0A/VulkanMemoryAllocator#v3.3.0
+zig fetch --save git+https://github.com/johan0A/VulkanMemoryAllocator#0.1.1+3.3.0
 ```
 
 2. Config `build.zig`:
