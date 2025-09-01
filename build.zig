@@ -18,8 +18,8 @@ pub fn build(b: *std.Build) !void {
         if (install_vulkan_headers) lib.installHeadersDirectory(vulkan_headers_path, "", .{});
     } else {
         if (b.lazyDependency("vulkan_headers", .{})) |vulkan_headers| {
-            lib.linkLibrary(vulkan_headers.artifact("vulkan-headers"));
-            if (install_vulkan_headers) lib.installLibraryHeaders(vulkan_headers.artifact("vulkan-headers"));
+            lib.addIncludePath(vulkan_headers.namedLazyPath("vulkan-headers"));
+            if (install_vulkan_headers) lib.installHeadersDirectory(vulkan_headers.namedLazyPath("vulkan-headers"), "", .{});
         }
     }
 
