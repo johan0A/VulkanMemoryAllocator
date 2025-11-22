@@ -1,24 +1,22 @@
-name: Continuous Integration
+name: CI
 
 on:
   push:
-    branches: [main]
-
   pull_request:
     branches: [main]
-
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-
+    strategy:
+      matrix:
+        zig-version: [0.15.2]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
-
       - name: Set up Zig
-        uses: mlugg/setup-zig@v1
-
-      - name: Run `build`
+        uses: mlugg/setup-zig@v2
+      - name: Run build
         run: zig build
