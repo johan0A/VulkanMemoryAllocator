@@ -1,17 +1,12 @@
 .{
     .name = .VulkanMemoryAllocator,
-    .version = "0.1.2+3.3.0",
+    .version = "0.2.0+3.3.0",
     .fingerprint = 0xb8aa25de81d2ad78, // Changing this has security and trust implications.
-    .minimum_zig_version = "0.14.0",
+    .minimum_zig_version = "0.15.2",
     .dependencies = .{
         .VulkanMemoryAllocator = .{
             .url = "git+https://github.com/GPUOpen-LibrariesAndSDKs/VulkanMemoryAllocator?ref=v3.3.0#1d8f600fd424278486eade7ed3e877c99f0846b1",
             .hash = "N-V-__8AAIutPgABk6NlXZhlJ5P8qVECvakZIKoO94h7xUOw",
-        },
-        .vulkan_headers = .{
-            .url = "git+https://github.com/johan0A/vulkan-headers-zig#acab9467e982b249203db493dd5a3089aeb4c767",
-            .hash = "vulkan_headers-0.1.0+1.4.326-IPSI1uADAACG8vYTRpu3hY-wLEy_WGmJ5YwI_v2ajFAp",
-            .lazy = true,
         },
     },
     .paths = .{

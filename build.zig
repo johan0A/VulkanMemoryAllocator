@@ -1,73 +1,80 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) !void {
-    const lib = b.addLibrary(.{
-        .name = "VulkanMemoryAllocator",
-        .linkage = b.option(std.builtin.LinkMode, "linkage", "defaults to static") orelse .static,
-        .root_module = b.createModule(.{
-            .target = b.standardTargetOptions(.{}),
-            .optimize = b.standardOptimizeOption(.{}),
-        }),
-    });
-    lib.linkLibCpp();
+    const target = b.standardTargetOptions(.{});
+    const optimize = b.standardOptimizeOption(.{});
 
-    const install_vulkan_headers = b.option(bool, "install-vulkan-headers", "(defaults to false)") orelse false;
+    const options = .{
+        .{ "VMA_STATIC_VULKAN_FUNCTIONS", bool, "Use statically linked Vulkan functions" },
+        .{ "VMA_DYNAMIC_VULKAN_FUNCTIONS", bool, "Dynamically load Vulkan functions" },
+        .{ "VMA_VULKAN_VERSION", i64, "Target specific Vulkan API version" },
+        .{ "VMA_STATS_STRING_ENABLED", bool, "Enable vmaBuildStatsString / vmaFreeStatsString" },
+        .{ "VMA_DEDICATED_ALLOCATION", bool, "Enable KHR dedicated allocation support" },
+        .{ "VMA_BIND_MEMORY2", bool, "Enable KHR bind memory 2 support" },
+        .{ "VMA_MEMORY_BUDGET", bool, "Enable memory budget tracking" },
+        .{ "VMA_BUFFER_DEVICE_ADDRESS", bool, "Enable buffer device address support" },
+        .{ "VMA_MEMORY_PRIORITY", bool, "Enable memory priority support" },
+        .{ "VMA_KHR_MAINTENANCE4", bool, "Enable KHR maintenance4 support" },
+        .{ "VMA_KHR_MAINTENANCE5", bool, "Enable KHR maintenance5 support" },
+        .{ "VMA_EXTERNAL_MEMORY", bool, "Enable external memory support" },
+        .{ "VMA_EXTERNAL_MEMORY_WIN32", bool, "Enable Win32 external memory handle support" },
 
-    if (b.option(std.Build.LazyPath, "vulkan-headers-path", "Path to Vulkan headers (defaults to bundled headers)")) |vulkan_headers_path| {
-        lib.addIncludePath(vulkan_headers_path);
-        if (install_vulkan_headers) lib.installHeadersDirectory(vulkan_headers_path, "", .{});
-    } else {
-        if (b.lazyDependency("vulkan_headers", .{})) |vulkan_headers| {
-            lib.addIncludePath(vulkan_headers.namedLazyPath("vulkan-headers"));
-            if (install_vulkan_headers) lib.installHeadersDirectory(vulkan_headers.namedLazyPath("vulkan-headers"), "", .{});
+        .{ "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY", bool, "Force every allocation into its own VkDeviceMemory" },
+        .{ "VMA_DEBUG_INITIALIZE_ALLOCATIONS", bool, "Fill new/destroyed allocations with a bit pattern" },
+        .{ "VMA_DEBUG_DETECT_CORRUPTION", bool, "Enable corruption detection (requires VMA_DEBUG_MARGIN > 0)" },
+        .{ "VMA_DEBUG_GLOBAL_MUTEX", bool, "Single global mutex protecting all entry points" },
+        .{ "VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT", bool, "Respect maxMemoryAllocationCount" },
+        .{ "VMA_DEBUG_DONT_EXCEED_HEAP_SIZE_WITH_ALLOCATION_SIZE", bool, "Refuse allocations exceeding heap size" },
+        .{ "VMA_MAPPING_HYSTERESIS_ENABLED", bool, "Enable mapping hysteresis to avoid frequent map/unmap" },
+        .{ "VMA_MIN_ALIGNMENT", i64, "Minimum alignment of all allocations in bytes (power of two)" },
+        .{ "VMA_DEBUG_MARGIN", i64, "Margin in bytes after every allocation for corruption detection" },
+        .{ "VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY", i64, "Override minimum bufferImageGranularity" },
+        .{ "VMA_SMALL_HEAP_MAX_SIZE", i64, "Max heap size in bytes to consider 'small'" },
+        .{ "VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE", i64, "Default block size in bytes for large heap allocations" },
+    };
+
+    const config_h = b.addConfigHeader(.{ .include_path = "vk_mem_alloc_config.h" }, .{});
+
+    inline for (options) |entry| {
+        const name, const T, const desc = entry;
+        if (b.option(T, name, desc)) |value| {
+            config_h.addValue(name, T, value);
         }
     }
+
+    const root_module = b.createModule(.{
+        .target = target,
+        .optimize = optimize,
+        .link_libcpp = true,
+    });
+
+    root_module.addCSourceFile(.{
+        .file = b.addWriteFiles().add("stub.cpp",
+            \\#include "vk_mem_alloc_config.h"
+            \\#define VMA_IMPLEMENTATION
+            \\#include "vk_mem_alloc.h"
+        ),
+        .flags = &.{"-std=c++17"},
+    });
+
+    root_module.addIncludePath(config_h.getOutputDir());
 
     const upstream = b.dependency("VulkanMemoryAllocator", .{});
-    lib.installHeader(upstream.path("include/vk_mem_alloc.h"), "vk_mem_alloc.h");
-    lib.addIncludePath(upstream.path("include/"));
+    root_module.addIncludePath(upstream.path("include/"));
 
-    lib.addCSourceFile(.{
-        .file = b.addWriteFiles().add("vk_mem_alloc.cpp", "#include \"vk_mem_alloc.h\""),
-        .flags = &.{ "-DVMA_IMPLEMENTATION", "-std=c++17" },
-    });
+    if (b.option(std.Build.LazyPath, "vulkan-include-path", "Path to Vulkan headers")) |vulkan_include_path| {
+        root_module.addIncludePath(vulkan_include_path);
 
-    {
-        const allocPrint = std.fmt.allocPrint;
-        const bool_options = [_][2][]const u8{
-            .{ "macro_static_vulkan_functions", "VMA_STATIC_VULKAN_FUNCTIONS" },
-            .{ "macro_dynamic_vulkan_functions", "VMA_DYNAMIC_VULKAN_FUNCTIONS" },
-            .{ "macro_stats_string_enabled", "VMA_STATS_STRING_ENABLED" },
-            .{ "macro_debug_initialize_allocations", "VMA_DEBUG_INITIALIZE_ALLOCATIONS" },
-            .{ "macro_debug_detect_corruption", "VMA_DEBUG_DETECT_CORRUPTION" },
-            .{ "macro_debug_global_mutex", "VMA_DEBUG_GLOBAL_MUTEX" },
-            .{ "macro_use_stl_shared_mutex", "VMA_USE_STL_SHARED_MUTEX" },
-            .{ "macro_debug_always_dedicated_memory", "VMA_DEBUG_ALWAYS_DEDICATED_MEMORY" },
-            .{ "macro_debug_dont_exceed_max_memory_allocation_count", "VMA_DEBUG_DONT_EXCEED_MAX_MEMORY_ALLOCATION_COUNT" },
-            .{ "macro_mapping_hysteresis_enabled", "VMA_MAPPING_HYSTERESIS_ENABLED" },
-        };
-        for (bool_options) |bool_option| {
-            if (b.option(bool, bool_option[0], "")) |opt|
-                lib.root_module.addCMacro(bool_option[1], try allocPrint(b.allocator, "{}", .{@intFromBool(opt)}));
-        }
-
-        if (b.option(i64, "macro_debug_min_buffer_image_granularity", "")) |opt|
-            lib.root_module.addCMacro("VMA_DEBUG_MIN_BUFFER_IMAGE_GRANULARITY", try allocPrint(b.allocator, "{}", .{opt}));
-        if (b.option(i64, "macro_debug_margin", "")) |opt|
-            lib.root_module.addCMacro("VMA_DEBUG_MARGIN", try allocPrint(b.allocator, "{}", .{opt}));
-        if (b.option(i64, "macro_min_alignment", "")) |opt|
-            lib.root_module.addCMacro("VMA_MIN_ALIGNMENT", try allocPrint(b.allocator, "{}", .{opt}));
-
-        if (b.option(u64, "macro_small_heap_max_size", "")) |opt|
-            lib.root_module.addCMacro("VMA_SMALL_HEAP_MAX_SIZE", try allocPrint(b.allocator, "{}ull", .{opt}));
-        if (b.option(u64, "macro_default_large_heap_block_size", "")) |opt|
-            lib.root_module.addCMacro("VMA_DEFAULT_LARGE_HEAP_BLOCK_SIZE", try allocPrint(b.allocator, "{}ull", .{opt}));
-
-        if (b.option([]const u8, "macro_null", "")) |opt|
-            lib.root_module.addCMacro("VMA_NULL", opt);
-        if (b.option([]const u8, "macro_configuration_user_includes_h", "")) |opt|
-            lib.root_module.addCMacro("VMA_CONFIGURATION_USER_INCLUDES_H", try allocPrint(b.allocator, "\"{s}\"", .{opt}));
+        const lib = b.addLibrary(.{
+            .name = "VulkanMemoryAllocator",
+            .linkage = b.option(std.builtin.LinkMode, "linkage", "defaults to static") orelse .static,
+            .root_module = root_module,
+        });
+        b.installArtifact(lib);
+        lib.installHeader(upstream.path("include/vk_mem_alloc.h"), "vk_mem_alloc.h");
+        lib.installHeader(config_h.getOutputFile(), "vk_mem_alloc_config.h");
+    } else {
+        const fail = b.addFail("missing vulkan headers, specify a path to vulkan headers using the vulkan-include-path option");
+        b.getInstallStep().dependOn(&fail.step);
     }
-
-    b.installArtifact(lib);
 }
